@@ -391,7 +391,7 @@ function getPrettyResults(results){
                     unitIdsInCombat.push(unitData.unit.id)
                 }
             }
-            for (const [unitIndex, unit] of fleet.units) {
+            for (const [unitIndex, unit] of fleet.units.map) {
                 if (!unitIdsInCombat.includes(unit.id)){
                     unitIdsInCombat.push(unit.id)
                 }
@@ -403,7 +403,7 @@ function getPrettyResults(results){
                     unitIdsInCombat.push(unitData.unit.id)
                 }
             }
-            for (const [unitIndex, unit] of fleet.units) {
+            for (const [unitIndex, unit] of fleet.units.map) {
                 if (!unitIdsInCombat.includes(unit.id)){
                     unitIdsInCombat.push(unit.id)
                 }
@@ -607,14 +607,14 @@ function _fight(attackers, defenders){
 
     //attackers shoot
     for (const fleet of attackers) {
-        for (const [unitId,unit] of fleet.units){
+        for (const [unitId,unit] of fleet.units.map){
             _shoot(unit, defenders)
         }
     }
         
     //defenders shoot
     for (const fleet of defenders) {
-        for (const [unitId,unit] of fleet.units){
+        for (const [unitId,unit] of fleet.units.map){
             _shoot(unit, attackers)
         }
     }
@@ -647,8 +647,7 @@ function _shoot(unit, defenders){
         // -> check next defnder
         if (ran < count){
             //get random victim ship
-            let shipId = getRandomInt(fleet.units.size-1)
-            victimShip = fleet.units.get(shipId)
+            victimShip = fleet.units.getRandom()
             break
         }
     }
@@ -702,37 +701,16 @@ function _destroy(fleets, round){
         for(let unitId = fleet.units.size-1; unitId >= 0 ;unitId--){
             const unit = fleet.units.get(unitId);
             if( unit.armor <= 0 || unit.explode){
+                //only for result
+                fleet.destoryedUnits.set(fleet.destoryedUnitsCount, { "unit": unit, "round": round})
+                fleet.destoryedUnitsCount +=1
+
                 //destroy unit
-                _destroyShip(fleet,unitId, unit, round)
+                fleet.units.remove(unitId)
             }
         }
     }
 }
-
-function _destroyShip(fleet, unitId, unit, round){
-    //only for result
-    fleet.destoryedUnits.set(fleet.destoryedUnitsCount, { "unit": unit, "round": round})
-    fleet.destoryedUnitsCount +=1
-
-    //Replace Destroyed ship with last ship in fleet
-    const size = fleet.units.size
-    
-    // IF unit to destroy == last ship in fleet
-    // Delete without replacing
-    if(unitId == size-1){
-        fleet.units.delete(unitId)
-        return
-    }
-
-    //destoryed ship is replaced with its successor.
-    //last ship gets deleted
-    for (let i = unitId; i+1 < size; i++) {
-        fleet.units.set(i, fleet.units.get(i+1)
-    }
-    fleet.units.delete(size-1)
-    
-}
-
 
 class Fleet {
     constructor(fleetId, military_tech, shield_tech, defence_tech){
@@ -741,7 +719,7 @@ class Fleet {
         this._shieldTech = 1 + (0.1 * shield_tech)
         this._defence_tech = 1 + (0.1 * defence_tech)
         
-        this.units = new Map()
+        this.units = new UnitsMap()
         this.unitAmount = 0
 
         //test
@@ -755,7 +733,7 @@ class Fleet {
     }
 
     restoreShield(){
-        for (const [unitId,unit] of this.units) {
+        for (const [unitId,unit] of this.units.map) {
             unit.shield = unit.initialShield
         }
     }
@@ -785,3 +763,55 @@ class Unit {
 }
 
 
+class UnitsMap {
+    constructor() {
+        //key:   0 to size of map
+        //Value: key of this.map
+        this.idxOfKeys = new Map(); 
+
+        //key:   index on create
+        //Value: Unit
+        this.map = new Map();
+
+        //size of this.idxOfKeys and this.map
+        //to improve performance wee keep track of this by our self
+        this.size = 0
+    }
+
+    set(k,v) {
+        this.idxOfKeys.set(this.size, k); // save position of Key in map
+        this.map.set(k, v);
+        this.size +=1
+    }
+
+    get(k){
+        let key = this.idxOfKeys.get(k);
+        return this.map.get(key)
+    }
+
+    remove(k) {
+        //get key of element
+        let key = this.idxOfKeys.get(k);
+        
+        //delet element
+        this.map.delete(key);
+        
+        if (this.size != k){
+            let lastElement = this.idxOfKeys.get(this.size-1)
+
+            //Replace Index with last element
+            this.idxOfKeys.set(k, lastElement)
+        }
+
+        //Delete last Element from index
+        //The Deleted element has been selected as removed or is reset to the remove k
+        this.idxOfKeys.delete(this.size-1)
+
+        this.size -=1
+    }
+
+    getRandom() {
+        let idx = Math.floor(Math.random() * this.size);
+        return this.get(idx)
+    }
+}
