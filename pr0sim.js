@@ -724,9 +724,11 @@ function _destroyShip(fleet, unitId, unit, round){
         return
     }
 
-    //destoryed ship is replaced with last ship.
-    //last ship get deleted
-    fleet.units.set(unitId,fleet.units.get(size-1))
+    //destoryed ship is replaced with its successor.
+    //last ship gets deleted
+    for (let i = unitId; i+1 < size; i++) {
+        fleet.units.set(i, fleet.units.get(i+1)
+    }
     fleet.units.delete(size-1)
     
 }
